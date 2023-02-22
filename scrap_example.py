@@ -7,10 +7,9 @@ baseUrl = 'https://www.studyrama.com'
 uri = ''
 response = requests.get(baseUrl)
 
-# Réponse 200 Serveur
-if response.ok:
-    # Récupération page source
-    swoup = BeautifulSoup(response.text, 'html.parser')
+
+def getEndPoints(swoup):
+    links = []
     # Get première balise <ul>...</ul>
     ul = swoup.find("ul")
     # ul = swoup.find("ul", {"class": "results"})
@@ -19,4 +18,14 @@ if response.ok:
     lis = ul.findAll("li")
     for li in lis:
         a = li.find("a")
-        print(a["href"])
+        links.append(a["href"])
+    
+    return links
+
+# Réponse 200 Serveur
+if response.ok:
+    # Récupération page source
+    swoup = BeautifulSoup(response.text, 'html.parser')
+    endpoints = getEndPoints(swoup)
+
+print(endpoints)
