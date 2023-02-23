@@ -1,38 +1,91 @@
 # Imports
 import requests
 from bs4 import BeautifulSoup
+import csv
 
 # Variables
 baseUrl = 'https://www.allocine.fr'
-cineUri = '/film/'
-aucineUri = '/film/aucinema/?page='
+aucinemaUri = "/film/aucinema/?page="
 
 
-# HTTP GET sur URL souhaité
-page = 1
-response = requests.get(baseUrl + aucineUri + str(page))
-oldUrl = ""
+# Création d'une nouvelle Swoup
+def newSwoup(url, process):
+    response = requests.get(url)
+    if response.ok:
+        swoup = BeautifulSoup(response.text, 'html.parser')
+        return process(swoup)
+    return []
 
-while response.ok and response.url != oldUrl:
-    swoup = BeautifulSoup(response.text, 'html.parser')
-    
+# Get lien des affiches de fiche
+def getMoviePage(swoup):
+    links = []
     divs = swoup.findAll("div", {"class": "card entity-card entity-card-list cf"})
     for div in divs:
-        title = div.find("a", {"class": "meta-title-link"})
-        resume = div.find("div", {"class": "content-txt"})
-        note = div.find("span", {"class": "stareval-note"})
-        if note is None:
-            note = "Aucune note"
-            print(title.text, resume.text, note)
-        else:    
-            print(title.text, resume.text, note.text)
-        # moyenne = 0
-        # for note in notes:
-        #     moyenne += float(note.text)
-        # moyenne /= 2
-        # print(moyenne)
+        a = div.find("a")
+        links.append(baseUrl + a["href"])
+    return links
 
-    # Changement de page
-    page += 1
-    oldUrl = response.url
-    response = requests.get(baseUrl + aucineUri + str(page))
+def getMoviePages():
+    pageNumber = 1
+    oldUrl = ""
+    response = requests.get(baseUrl + aucinemaUri + str(pageNumber))
+    moviePageLinks = []
+
+    while response.ok and response.url != oldUrl:
+        moviePageLinks.extend(newSwoup(baseUrl + aucinemaUri + str(pageNumber),  getMoviePage)) 
+
+        pageNumber += 1
+        oldUrl = response.url
+        response = requests.get(baseUrl + aucinemaUri + str(pageNumber))
+
+    return moviePageLinks
+
+def getInfos(swoup):
+    title = swoup.find("div", {"class": "titlebar-title titlebar-title-lg"})
+    
+    return title
+
+# Récupère infos des pages
+def getPage(file):
+    links = []
+    links = fileReader(file)
+    
+    infos = []
+    for link in links:
+        infos.append(newSwoup(link.get("Page link"), getInfos))
+
+    return infos
+
+
+# Lecture d'un fichier
+def fileReader(file):
+    result = []
+    with open(file, 'r', encoding="UTF8", newline="") as f:
+        reader = csv.DictReader(f)
+        for line in reader:
+           result.append(line) 
+    return result
+
+# Ecriture sur un fichier
+def fileWriter(file, fieldnames, data):
+    with open(file, 'w', encoding="UTF8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        # writer.writerows(data)
+        for el in data:
+            f.write(el + '\n')
+    return fileReader(file)
+
+
+def main():
+    links = getMoviePages()
+    linkFields = ['Page link']
+    fileWriter('links.csv', linkFields, links)
+
+    getPage('links.csv')
+    
+    # movieFields = ['Titre', 'Résumé', 'Note']
+    # fileWriter('infos.csv', movieFields, )
+
+main()
+exit()
